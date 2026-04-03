@@ -1,0 +1,174 @@
+
+************************************************************
+  metadata-security-toolkit � DEMO
+  Developer: pendatkill
+  For educational and research purposes only.
+************************************************************
+
+============================================================
+  EXIF ANALYZER
+============================================================
+
+  -- analyze() --
+  (no EXIF data embedded in this test image)
+
+  -- get_gps() --
+  GPS coordinates: None (no GPS data in test image)
+
+  -- detect_editing_software() --
+  Detected software: None
+
+============================================================
+  FILE FORENSICS
+============================================================
+
+  -- analyze() � JPEG --
+  Forensic summary:
+    filename: demo_image.jpg
+    size: 692
+    mime_type: image/jpeg
+    created: 2026-04-03T14:16:33.613675
+    modified: 2026-04-03T14:16:33.613675
+    md5: 352fe090ea2465075b0a77cc418978e2
+    sha256: f111131fd7fd193d2d4812e80af55920fbe7cb5d0c0523409eed84f94bc7b496
+
+  -- compute_entropy() � JPEG --
+  Entropy (image): 6.6897 bits/byte
+
+  -- analyze() � text file --
+  Forensic summary:
+    filename: demo_text.txt
+    size: 589
+    mime_type: text/plain
+    created: 2026-04-03T14:16:33.614673
+    modified: 2026-04-03T14:16:33.614673
+    md5: ae32067a5511e5e82e04ecf11da94153
+    sha256: be75364f8de76be95dc55e831086c7332ea67320f79a011b86bb9083db476537
+
+  -- compute_entropy() � text file --
+  Entropy (text):  4.3097 bits/byte
+
+============================================================
+  CRYPTO TRACER
+============================================================
+
+  -- hash_file() � JPEG --
+  File hashes:
+    md5: 352fe090ea2465075b0a77cc418978e2
+    sha1: 876c7eec21cfb1973d14d0394f0a13aafdc06f79
+    sha256: f111131fd7fd193d2d4812e80af55920fbe7cb5d0c0523409eed84f94bc7b496
+    sha512: ebb1b0434a975f6f07cce44e13c3b228237a00e339aa3fe67dc6e04aeff9b72f7b429cce42bc6...
+
+  -- measure_entropy() � raw bytes of JPEG header --
+  Header entropy (first 512 bytes): 6.4700 bits/byte
+
+  -- measure_entropy() � synthetic high-entropy data --
+  Entropy (512 random bytes):       7.5596 bits/byte
+
+  -- detect_encryption_signature() � JPEG --
+  Encryption signatures:
+    - (none detected)
+
+  -- detect_encryption_signature() � simulated OpenSSL header --
+  Encryption signatures (OpenSSL header):
+    - OpenSSL salted encryption header
+    - High entropy in file header (7.62 bits/byte) � likely encrypted or compressed
+
+  -- check_steganography_hints() � JPEG (unsupported format) --
+  Steganography result:
+    suspicion_score: 0.0
+    reasons: ["Unsupported format '.jpg'; only PNG and BMP are checked."]
+    supported: False
+
+  -- check_steganography_hints() � PNG --
+  Steganography result (PNG):
+    suspicion_score: 0.0
+    reasons: []
+    supported: True
+
+============================================================
+  AI DETECTOR
+============================================================
+
+  -- analyze_text() � AI-filler-rich text --
+  Score:      0.4500
+  Confidence: medium
+  Indicators:
+    - Vocabulary richness (TTR=0.69) is in the typical AI range.
+    - Found 17 common AI filler phrase(s): 'in conclusion', 'it is worth noting', 'it is important to note', 'it is essential to', 'furthermore'
+
+  -- analyze_text() � natural / human-like text --
+  Score:      0.0000
+  Confidence: low
+  Indicators:
+    (none)
+
+  -- analyze_image_metadata() � test JPEG --
+  is_likely_ai: False
+  software:     None
+  Evidence:
+    - No camera Make or Model found in EXIF � typical of AI-generated images.
+    - No focal length or ISO data � further consistent with AI generation.
+
+  -- analyze_file() � JPEG (combined) --
+  file_type:    image
+  is_likely_ai: False
+  summary:      No strong AI generation indicators found in image metadata.
+
+  -- analyze_file() � text file (combined) --
+  file_type:    text
+  is_likely_ai: False
+  summary:      Text AI score: 0.45 (confidence: medium)
+
+============================================================
+  REPORT ENGINE
+============================================================
+
+  -- summarize() � plain-text report --
+============================================================
+  METADATA SECURITY TOOLKIT � ANALYSIS REPORT
+  Generated: 2026-04-03T12:16:33Z
+============================================================
+
+Target file : C:\Users\santi\AppData\Local\Temp\tmpcnpy5e7p\demo_image.jpg
+
+--- EXIF Metadata ---
+  No EXIF data found or module not run.
+
+--- File Forensics ---
+  filename: demo_image.jpg
+  size: 692
+  mime_type: image/jpeg
+  created: 2026-04-03T14:16:33.613675
+  modified: 2026-04-03T14:16:33.613675
+  md5: 352fe090ea2465075b0a77cc418978e2
+  sha256: f111131fd7fd193d2d4812e80af55920fbe7cb5d0c0523409eed84f94bc7b496
+
+--- Crypto / Encryption ---
+  MD5: 352fe090ea2465075b0a77cc418978e2
+  SHA1: 876c7eec21cfb1973d14d0394f0a13aafdc06f79
+  SHA256: f111131fd7fd193d2d4812e80af55920fbe7cb5d0c0523409eed84f94bc7b496
+  SHA512: ebb1b0434a975f6f07cce44e13c3b228237a00e339aa3fe67dc6e04aeff9b72f7b429cce42bc67c965c2fd6d2927f09fae5aafc8acb7d86ae9af2bcc58b02874
+
+--- AI Detection ---
+  Likely AI-generated: NO
+  Summary: No strong AI generation indicators found in image metadata.
+    [metadata] No camera Make or Model found in EXIF � typical of AI-generated images.
+    [metadata] No focal length or ISO data � further consistent with AI generation.
+
+============================================================
+  END OF REPORT
+============================================================
+
+  -- generate() � JSON report saved to tempdir --
+  JSON report written to: C:\Users\santi\AppData\Local\Temp\tmpcnpy5e7p\report.json
+  Report size: 1404 bytes
+
+  -- generate() � text report saved to tempdir --
+  Text report written to: C:\Users\santi\AppData\Local\Temp\tmpcnpy5e7p\report.txt
+
+============================================================
+  DEMO COMPLETE
+  All modules executed successfully.
+============================================================
+

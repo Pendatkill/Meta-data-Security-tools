@@ -1,0 +1,44 @@
+MIT License
+
+Copyright (c) 2026 pendatkill
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+ADDITIONAL NON-LIABILITY CLAUSE FOR SECURITY TOOLS
+-------------------------------------------------------------------------------
+
+This software is provided exclusively for educational, academic, and security
+research purposes. The author (pendatkill) expressly disclaims all liability
+for any direct, indirect, incidental, special, or consequential damages
+arising from the use or misuse of this tool, including but not limited to:
+
+  - Unauthorized access to computer systems or data
+  - Privacy violations or unlawful processing of personal data
+  - Any illegal interception, collection, or analysis of metadata
+  - Damage caused by reliance on outputs produced by this software
+
+Users are solely responsible for ensuring that their use of this software
+complies with all applicable local, national, and international laws and
+regulations, including (but not limited to) the General Data Protection
+Regulation (GDPR), the Computer Fraud and Abuse Act (CFAA), and equivalent
+legislation in the user's jurisdiction.
+
+By using this software you acknowledge that you have read this disclaimer,
+understand it, and agree to be bound by its terms.
