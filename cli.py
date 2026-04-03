@@ -73,12 +73,27 @@ def _c(text: str, color: str, use_color: bool) -> str:
 # Print helpers
 # -----------------------------------------------------------------------
 
+_ASCII_BANNER = r"""
+  _ __  ___ _           ___ ___ ___
+ | '  \/ -_) |_ __ _ __/ __| __/ __|
+ | |\/| \__ \  _/ _` (_-<\__ \__ \__|
+ |_|  |_|___/\__\__,_/__/|___/___\___|
+  _           _ _   _ _
+ | |_ ___  __| | |_(_) |_
+ |  _/ _ \/ _` | / / |  _|
+  \__\___/\__,_|_\_\_|\__|
+"""
+
 def _header(use_color: bool):
-    line = "=" * 70
-    title = "  metadata-security-toolkit  |  Developer: pendatkill  |  Educational use only"
-    print(_c(line, Colors.CYAN, use_color))
-    print(_c(title, Colors.BOLD + Colors.CYAN, use_color))
-    print(_c(line, Colors.CYAN, use_color))
+    print(_c(_ASCII_BANNER, Colors.CYAN, use_color))
+    meta_line  = f"  {'metadata-security-toolkit':^46}  v0.1.0"
+    dev_line   = f"  {'Developer: pendatkill':^46}"
+    disc_line  = f"  {'[ Educational use only - not for illegal activity ]':^46}"
+    sep        = "  " + "-" * 52
+    print(_c(meta_line,  Colors.BOLD + Colors.CYAN,    use_color))
+    print(_c(dev_line,   Colors.GREY,                  use_color))
+    print(_c(disc_line,  Colors.YELLOW,                use_color))
+    print(_c(sep,        Colors.CYAN,                  use_color))
 
 
 def _section(title: str, use_color: bool):
