@@ -38,7 +38,7 @@ _AI_SOFTWARE_SIGNATURES = [
     "leonardo ai",
     "leonardo.ai",
     "runway",
-    "canva ai",
+    "pika",
     "bing image creator",
     "ideogram",
     "nightcafe",
@@ -47,12 +47,23 @@ _AI_SOFTWARE_SIGNATURES = [
     "playground ai",
     "seaart",
     "tensor art",
+    "canva ai",
 ]
 
+# PNG text chunk keys typically set by AI generators
+_AI_PNG_TEXT_KEYS = {
+    "parameters", "prompt", "negative_prompt", "workflow", "comment",
+    "sd model", "steps", "sampler", "cfg scale", "seed",
+}
+
+# Dimensions typical of AI-generated images (both width and height)
+_AI_ROUND_DIMENSIONS = {512, 768, 1024, 1280, 2048, 576, 640, 896, 1152, 1536}
+
 # -----------------------------------------------------------------------
-# Common AI filler / transition phrases
+# Common AI filler / transition phrases — English and Spanish
 # -----------------------------------------------------------------------
 _AI_FILLER_PHRASES = [
+    # English
     r"\bin conclusion\b",
     r"\bit is worth noting\b",
     r"\bit is important to note\b",
@@ -79,6 +90,55 @@ _AI_FILLER_PHRASES = [
     r"\bleverage\b",
     r"\btailored\b",
     r"\bsignificant(ly)?\b",
+    r"\bone must consider\b",
+    r"\bas previously mentioned\b",
+    r"\bin essence\b",
+    r"\bat its core\b",
+    r"\bit goes without saying\b",
+    r"\bneedless to say\b",
+    r"\bit is evident that\b",
+    r"\bundoubtedly\b",
+    r"\bcertainly\b",
+    r"\bof course\b",
+    r"\bas we can see\b",
+    r"\bmultifaceted\b",
+    r"\bnuanced\b",
+    r"\bpivotal\b",
+    r"\butilize\b",
+    r"\bfacilitate\b",
+    r"\bstreamline\b",
+    r"\bcutting[\-\s]edge\b",
+    r"\bstate[\-\s]of[\-\s]the[\-\s]art\b",
+    r"\bgame[\-\s]changer\b",
+    r"\bparadigm shift\b",
+    r"\bin addition\b",
+    r"\bit is important\b",
+    r"\bof utmost importance\b",
+    r"\bcrucial role\b",
+    r"\bkey takeaway\b",
+    r"\bworthwhile to note\b",
+
+    # Spanish
+    r"\ben conclusi[oó]n\b",
+    r"\bcabe destacar\b",
+    r"\bes importante se[nñ]alar\b",
+    r"\badem[aá]s\b",
+    r"\basimismo\b",
+    r"\bpor otro lado\b",
+    r"\ben este sentido\b",
+    r"\ben definitiva\b",
+    r"\ben resumen\b",
+    r"\ben esencia\b",
+    r"\bcomo se puede observar\b",
+    r"\bsin duda\b",
+    r"\bes fundamental\b",
+    r"\bes crucial\b",
+    r"\bes esencial\b",
+    r"\bhay que tener en cuenta\b",
+    r"\ben el [aá]mbito de\b",
+    r"\ben el contexto de\b",
+    r"\ba modo de conclusi[oó]n\b",
+    r"\btal y como se ha mencionado\b",
 ]
 
 
@@ -100,8 +160,12 @@ class AIDetector:
         Heuristics applied:
         1. Average sentence length (AI tends toward medium-long, uniform sentences)
         2. Type-Token Ratio (TTR) — vocabulary richness
-        3. Repetition of n-grams
-        4. Presence of common AI filler phrases
+        3. Bigram repetition
+        4. Presence of common AI filler phrases (English + Spanish)
+        5. Burstiness score — variance of sentence lengths (AI has low variance)
+        6. N-gram (trigram) repetition
+        7. Paragraph uniformity — AI paragraphs tend to be similar in length
+        8. Hapax ratio — words appearing exactly once (humans: >0.7, AI: <0.5)
 
         Args:
             text: The text string to analyse.
@@ -111,75 +175,173 @@ class AIDetector:
                 - 'score': float in [0.0, 1.0] (higher = more likely AI)
                 - 'confidence': 'low' | 'medium' | 'high'
                 - 'indicators': list of human-readable indicator strings
+                - 'breakdown': dict with per-indicator scores
         """
         if not text or not text.strip():
-            return {"score": 0.0, "confidence": "low", "indicators": ["Empty or blank input."]}
+            return {
+                "score": 0.0,
+                "confidence": "low",
+                "indicators": ["Empty or blank input."],
+                "breakdown": {},
+            }
 
         indicators = []
         score = 0.0
+        breakdown = {}
 
         # --- Tokenise ---
         sentences = self._split_sentences(text)
-        words = re.findall(r"\b[a-zA-Z']+\b", text.lower())
+        words = re.findall(r"\b[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ']+\b", text.lower())
+        paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text.strip()) if p.strip()]
 
         # 1. Average sentence length
-        if sentences:
-            avg_len = sum(len(re.findall(r"\b\w+\b", s)) for s in sentences) / len(sentences)
+        sent_lengths = [len(re.findall(r"\b\w+\b", s)) for s in sentences if s.strip()]
+        if sent_lengths:
+            avg_len = sum(sent_lengths) / len(sent_lengths)
             if 15 <= avg_len <= 35:
-                score += 0.15
+                delta = 0.15
+                score += delta
+                breakdown["avg_sentence_length"] = delta
                 indicators.append(
                     f"Average sentence length ({avg_len:.1f} words) falls in typical AI range (15–35)."
                 )
-            # Very uniform sentence lengths (low std-dev) → AI-like
-            lengths = [len(re.findall(r"\b\w+\b", s)) for s in sentences if s.strip()]
-            if len(lengths) > 2:
-                mean_len = sum(lengths) / len(lengths)
-                variance = sum((l - mean_len) ** 2 for l in lengths) / len(lengths)
-                std_dev = math.sqrt(variance)
-                cv = std_dev / mean_len if mean_len > 0 else 1.0  # coefficient of variation
-                if cv < 0.25:
-                    score += 0.15
-                    indicators.append(
-                        f"Sentence lengths are very uniform (CV={cv:.2f}), suggesting machine generation."
-                    )
+            else:
+                breakdown["avg_sentence_length"] = 0.0
 
-        # 2. Type-Token Ratio (TTR)
+        # 2. Burstiness score
+        burstiness_score = 0.0
+        if len(sent_lengths) > 2:
+            mean_len = sum(sent_lengths) / len(sent_lengths)
+            variance = sum((l - mean_len) ** 2 for l in sent_lengths) / len(sent_lengths)
+            std_dev = math.sqrt(variance)
+            cv = std_dev / mean_len if mean_len > 0 else 1.0
+
+            # Low CV → AI-like (uniform sentences)
+            if cv < 0.25:
+                burstiness_score = 0.20
+                indicators.append(
+                    f"Sentence lengths are very uniform (CV={cv:.2f} < 0.25) — "
+                    "AI text has low burstiness. Human text has CV > 0.4 typically."
+                )
+            elif cv < 0.40:
+                burstiness_score = 0.10
+                indicators.append(
+                    f"Sentence length uniformity is moderate (CV={cv:.2f}) — somewhat AI-like."
+                )
+            score += burstiness_score
+            breakdown["burstiness"] = burstiness_score
+
+        # 3. Type-Token Ratio (TTR)
+        ttr_score = 0.0
         if words:
             unique_words = set(words)
             ttr = len(unique_words) / len(words)
-            # AI text often has moderate TTR (0.4–0.7); very low = repetitive, very high = rare
             if 0.35 <= ttr <= 0.70:
-                score += 0.10
+                ttr_score = 0.10
                 indicators.append(f"Vocabulary richness (TTR={ttr:.2f}) is in the typical AI range.")
             elif ttr < 0.25:
-                score += 0.20
+                ttr_score = 0.20
                 indicators.append(
                     f"Very low vocabulary richness (TTR={ttr:.2f}); high word repetition detected."
                 )
+            score += ttr_score
+            breakdown["ttr"] = ttr_score
 
-        # 3. Bigram repetition
+        # 4. Bigram repetition
+        bigram_score = 0.0
         if len(words) >= 4:
             bigrams = list(zip(words, words[1:]))
             unique_bigrams = set(bigrams)
             bigram_rep_ratio = 1.0 - len(unique_bigrams) / len(bigrams)
             if bigram_rep_ratio > 0.15:
-                score += 0.15
+                bigram_score = 0.15
                 indicators.append(
                     f"High bigram repetition ratio ({bigram_rep_ratio:.2f}) suggests templated output."
                 )
+            score += bigram_score
+            breakdown["bigram_repetition"] = bigram_score
 
-        # 4. AI filler phrases
+        # 5. Trigram repetition (N-gram analysis)
+        trigram_score = 0.0
+        if len(words) >= 6:
+            trigrams = list(zip(words, words[1:], words[2:]))
+            trigram_counts = {}
+            for tg in trigrams:
+                trigram_counts[tg] = trigram_counts.get(tg, 0) + 1
+            repeated_trigrams = {tg: c for tg, c in trigram_counts.items() if c > 2}
+            if repeated_trigrams:
+                trigram_score = min(len(repeated_trigrams) * 0.05, 0.20)
+                top = sorted(repeated_trigrams.items(), key=lambda x: -x[1])[:3]
+                examples = [" ".join(tg) for tg, _ in top]
+                indicators.append(
+                    f"Repeated trigrams detected ({len(repeated_trigrams)} unique): "
+                    + ", ".join(f"'{t}'" for t in examples)
+                )
+            score += trigram_score
+            breakdown["trigram_repetition"] = trigram_score
+
+        # 6. AI filler phrases
+        filler_score = 0.0
         filler_hits = []
         for pattern in _AI_FILLER_PHRASES:
             if re.search(pattern, text, re.IGNORECASE):
-                filler_hits.append(pattern.strip(r"\b"))
+                # Extract matched phrase for display
+                m = re.search(pattern, text, re.IGNORECASE)
+                if m:
+                    filler_hits.append(m.group(0).strip())
         if filler_hits:
-            hit_score = min(len(filler_hits) * 0.08, 0.35)
-            score += hit_score
+            filler_score = min(len(filler_hits) * 0.06, 0.35)
+            score += filler_score
+            breakdown["filler_phrases"] = filler_score
             indicators.append(
                 f"Found {len(filler_hits)} common AI filler phrase(s): "
-                + ", ".join(f"'{p}'" for p in filler_hits[:5])
+                + ", ".join(f"'{p}'" for p in filler_hits[:6])
             )
+        else:
+            breakdown["filler_phrases"] = 0.0
+
+        # 7. Paragraph uniformity
+        para_score = 0.0
+        if len(paragraphs) > 3:
+            para_lengths = [len(re.findall(r"\b\w+\b", p)) for p in paragraphs]
+            mean_p = sum(para_lengths) / len(para_lengths)
+            if mean_p > 0:
+                std_p = math.sqrt(sum((l - mean_p) ** 2 for l in para_lengths) / len(para_lengths))
+                cv_p = std_p / mean_p
+                if cv_p < 0.30:
+                    para_score = 0.15
+                    indicators.append(
+                        f"Paragraph lengths are very uniform (CV={cv_p:.2f} < 0.30) — "
+                        "consistent with AI generation."
+                    )
+                elif cv_p < 0.50:
+                    para_score = 0.05
+                    indicators.append(
+                        f"Paragraph lengths are moderately uniform (CV={cv_p:.2f})."
+                    )
+            score += para_score
+            breakdown["paragraph_uniformity"] = para_score
+
+        # 8. Hapax ratio (words appearing exactly once)
+        hapax_score = 0.0
+        if words:
+            from collections import Counter
+            word_counts = Counter(words)
+            hapax_count = sum(1 for c in word_counts.values() if c == 1)
+            hapax_ratio = hapax_count / len(word_counts) if word_counts else 1.0
+            if hapax_ratio < 0.50:
+                hapax_score = 0.15
+                indicators.append(
+                    f"Low hapax ratio ({hapax_ratio:.2f}) — fewer than 50% of unique words appear "
+                    "only once. AI text tends to reuse vocabulary."
+                )
+            elif hapax_ratio < 0.65:
+                hapax_score = 0.05
+                indicators.append(
+                    f"Moderately low hapax ratio ({hapax_ratio:.2f}) — slight AI indicator."
+                )
+            score += hapax_score
+            breakdown["hapax_ratio"] = hapax_score
 
         score = min(score, 1.0)
 
@@ -190,7 +352,12 @@ class AIDetector:
         else:
             confidence = "low"
 
-        return {"score": round(score, 4), "confidence": confidence, "indicators": indicators}
+        return {
+            "score": round(score, 4),
+            "confidence": confidence,
+            "indicators": indicators,
+            "breakdown": breakdown,
+        }
 
     @staticmethod
     def _split_sentences(text: str) -> list:
@@ -204,13 +371,15 @@ class AIDetector:
 
     def analyze_image_metadata(self, filepath: str) -> dict:
         """
-        Checks image EXIF metadata for signs of AI generation.
+        Checks image EXIF metadata and file properties for signs of AI generation.
 
         Indicators checked:
         - EXIF Software field matches known AI generator names
         - Presence of AI-related keywords in ImageDescription / UserComment
+        - PNG text chunks (parameters, prompt, negative_prompt, workflow, Comment)
+        - UserComment with JSON-like content
         - Absence of camera make/model (AI images lack hardware info)
-        - Presence of art-style metadata without corresponding camera data
+        - Round dimensions typical of AI output (512, 768, 1024, 1280, 2048, etc.)
 
         Args:
             filepath: Path to an image file.
@@ -218,10 +387,18 @@ class AIDetector:
         Returns:
             dict with:
                 - 'is_likely_ai': bool
+                - 'confidence': 'low' | 'medium' | 'high'
+                - 'detected_tool': str or None
                 - 'evidence': list of evidence strings
                 - 'software': software string or None
         """
-        result = {"is_likely_ai": False, "evidence": [], "software": None}
+        result = {
+            "is_likely_ai": False,
+            "confidence": "low",
+            "detected_tool": None,
+            "evidence": [],
+            "software": None,
+        }
 
         if not PILLOW_AVAILABLE:
             result["evidence"].append("Pillow not available; metadata check skipped.")
@@ -234,8 +411,10 @@ class AIDetector:
         try:
             img = Image.open(filepath)
             raw_exif = img._getexif()
+            img_info = img.info  # PNG text chunks live here
+            img_size = img.size  # (width, height)
         except Exception as exc:
-            result["evidence"].append(f"Could not read EXIF: {exc}")
+            result["evidence"].append(f"Could not read image: {exc}")
             return result
 
         if raw_exif is None:
@@ -244,9 +423,10 @@ class AIDetector:
         exif = {TAGS.get(tag, str(tag)): val for tag, val in raw_exif.items()}
 
         evidence = []
-        is_ai = False
+        detected_tool = None
+        ai_signal_count = 0
 
-        # Check Software field
+        # --- Check Software field ---
         software = exif.get("Software", "")
         if isinstance(software, bytes):
             software = software.decode("utf-8", errors="replace")
@@ -258,10 +438,11 @@ class AIDetector:
             for sig in _AI_SOFTWARE_SIGNATURES:
                 if sig in sw_lower:
                     evidence.append(f"Software field matches known AI generator: '{software}'")
-                    is_ai = True
+                    detected_tool = sig.title()
+                    ai_signal_count += 3
                     break
 
-        # Check ImageDescription and UserComment for AI keywords
+        # --- Check ImageDescription and UserComment for AI keywords ---
         for field in ("ImageDescription", "UserComment"):
             val = exif.get(field, "")
             if isinstance(val, bytes):
@@ -273,10 +454,34 @@ class AIDetector:
                         evidence.append(
                             f"'{field}' contains AI generator reference: '{val[:120]}'"
                         )
-                        is_ai = True
+                        if detected_tool is None:
+                            detected_tool = sig.title()
+                        ai_signal_count += 2
                         break
+                # Check for JSON-like content in UserComment (common in ComfyUI/A1111)
+                if field == "UserComment" and (val.startswith("{") or '"prompt"' in val or '"steps"' in val):
+                    evidence.append(
+                        f"UserComment contains JSON-like content — typical of ComfyUI/Stable Diffusion metadata."
+                    )
+                    ai_signal_count += 2
 
-        # Check absence of camera hardware info
+        # --- Check PNG text chunks ---
+        if img_info:
+            for key, value in img_info.items():
+                key_lower = key.lower()
+                if key_lower in _AI_PNG_TEXT_KEYS:
+                    evidence.append(
+                        f"PNG text chunk '{key}' found — characteristic of AI generator output: "
+                        f"'{str(value)[:100]}'"
+                    )
+                    ai_signal_count += 2
+                    if detected_tool is None:
+                        if "comfyui" in str(value).lower():
+                            detected_tool = "ComfyUI"
+                        elif "automatic1111" in str(value).lower() or "steps:" in str(value).lower():
+                            detected_tool = "Stable Diffusion (A1111)"
+
+        # --- Check absence of camera hardware info ---
         has_make = bool(exif.get("Make"))
         has_model = bool(exif.get("Model"))
         has_focal = bool(exif.get("FocalLength"))
@@ -284,16 +489,129 @@ class AIDetector:
 
         if not has_make and not has_model:
             evidence.append("No camera Make or Model found in EXIF — typical of AI-generated images.")
-            # Only bump score, don't mark as AI on its own
+            ai_signal_count += 1
             if not has_focal and not has_iso:
                 evidence.append("No focal length or ISO data — further consistent with AI generation.")
-                if not is_ai:
-                    # Weak signal only if combined with software absence
-                    pass  # Do not flip is_likely_ai on this alone
+                ai_signal_count += 1
+
+        # --- Check round dimensions typical of AI ---
+        width, height = img_size
+        if width in _AI_ROUND_DIMENSIONS and height in _AI_ROUND_DIMENSIONS:
+            evidence.append(
+                f"Image dimensions {width}x{height} are typical of AI-generated images "
+                f"(both width and height are in {sorted(_AI_ROUND_DIMENSIONS)})."
+            )
+            ai_signal_count += 1
+
+        # --- Determine verdict ---
+        # Require at least 3 signals to avoid false positives on images
+        # that simply lack camera metadata (e.g., screenshots, web images)
+        # A single strong signal (software match, PNG AI chunk) = 3+ points = confirmed
+        is_ai = ai_signal_count >= 3
+        if ai_signal_count >= 5:
+            confidence = "high"
+        elif ai_signal_count >= 3:
+            confidence = "medium"
+        else:
+            confidence = "low"
 
         result["is_likely_ai"] = is_ai
+        result["confidence"] = confidence
+        result["detected_tool"] = detected_tool
         result["evidence"] = evidence
         return result
+
+    # ------------------------------------------------------------------
+    # Document analysis
+    # ------------------------------------------------------------------
+
+    def analyze_document(self, filepath: str) -> dict:
+        """
+        Extracts text from .txt, .pdf, or .docx files and runs analyze_text() on it.
+
+        Args:
+            filepath: Path to the document file.
+
+        Returns:
+            dict combining file metadata with analyze_text() results.
+        """
+        if not os.path.isfile(filepath):
+            return {"error": "File not found", "filepath": filepath}
+
+        ext = os.path.splitext(filepath)[1].lower()
+        text = ""
+        extraction_method = None
+
+        # --- Plain text ---
+        if ext in (".txt", ".md", ".rst", ".log", ".csv"):
+            try:
+                with open(filepath, "r", encoding="utf-8", errors="replace") as fh:
+                    text = fh.read()
+                extraction_method = "plaintext"
+            except Exception as exc:
+                return {"error": f"Cannot read file: {exc}", "filepath": filepath}
+
+        # --- PDF ---
+        elif ext == ".pdf":
+            try:
+                import fitz
+                doc = fitz.open(filepath)
+                pages_text = []
+                for page in doc:
+                    pages_text.append(page.get_text())
+                doc.close()
+                text = "\n".join(pages_text)
+                extraction_method = "pymupdf"
+            except ImportError:
+                return {
+                    "error": "PyMuPDF (fitz) not installed — cannot extract PDF text.",
+                    "filepath": filepath,
+                    "install_hint": "pip install PyMuPDF",
+                }
+            except Exception as exc:
+                return {"error": f"PDF extraction failed: {exc}", "filepath": filepath}
+
+        # --- DOCX ---
+        elif ext == ".docx":
+            try:
+                from docx import Document as DocxDocument
+                doc = DocxDocument(filepath)
+                paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+                text = "\n".join(paragraphs)
+                extraction_method = "python-docx"
+            except ImportError:
+                return {
+                    "error": "python-docx not installed — cannot extract DOCX text.",
+                    "filepath": filepath,
+                    "install_hint": "pip install python-docx",
+                }
+            except Exception as exc:
+                return {"error": f"DOCX extraction failed: {exc}", "filepath": filepath}
+
+        else:
+            return {
+                "error": f"Unsupported document format '{ext}'. Supported: .txt, .pdf, .docx",
+                "filepath": filepath,
+            }
+
+        if not text.strip():
+            return {
+                "filepath": filepath,
+                "extraction_method": extraction_method,
+                "text_length": 0,
+                "error": "No text content extracted from document.",
+            }
+
+        text_result = self.analyze_text(text)
+
+        return {
+            "filepath": filepath,
+            "extension": ext,
+            "extraction_method": extraction_method,
+            "text_length": len(text),
+            "word_count": len(re.findall(r"\b\w+\b", text)),
+            **text_result,
+        }
 
     # ------------------------------------------------------------------
     # Combined file analysis
@@ -343,7 +661,8 @@ class AIDetector:
             result["metadata_analysis"] = meta
             result["is_likely_ai"] = meta.get("is_likely_ai", False)
             result["summary"] = (
-                "Likely AI-generated image." if result["is_likely_ai"]
+                f"Likely AI-generated image (confidence: {meta.get('confidence', 'unknown')})."
+                if result["is_likely_ai"]
                 else "No strong AI generation indicators found in image metadata."
             )
 

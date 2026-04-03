@@ -105,13 +105,19 @@ class TestCryptoTracerHashFile(unittest.TestCase):
     # detect_encryption_signature()
     # ------------------------------------------------------------------
 
+    def _finding_text(self, f) -> str:
+        """Normalise a finding to a searchable string (handles str or dict)."""
+        if isinstance(f, dict):
+            return (f.get("type", "") + " " + f.get("detail", "")).lower()
+        return str(f).lower()
+
     def test_detect_pgp_ascii_armor(self):
         data = b"-----BEGIN PGP MESSAGE-----\nVersion: GnuPG v2\n\nhQIMA..."
         path = self._write_temp(data, suffix=".asc")
         findings = self.tracer.detect_encryption_signature(path)
         self.assertIsInstance(findings, list)
         self.assertTrue(
-            any("PGP" in f for f in findings),
+            any("pgp" in self._finding_text(f) for f in findings),
             f"Expected PGP finding, got: {findings}"
         )
 
@@ -120,7 +126,8 @@ class TestCryptoTracerHashFile(unittest.TestCase):
         path = self._write_temp(data, suffix=".enc")
         findings = self.tracer.detect_encryption_signature(path)
         self.assertTrue(
-            any("OpenSSL" in f or "Salted" in f for f in findings),
+            any("openssl" in self._finding_text(f) or "salted" in self._finding_text(f)
+                for f in findings),
             f"Expected OpenSSL finding, got: {findings}"
         )
 
@@ -129,7 +136,7 @@ class TestCryptoTracerHashFile(unittest.TestCase):
         path = self._write_temp(data, suffix=".txt")
         findings = self.tracer.detect_encryption_signature(path)
         # Plain ASCII text should be low entropy — no high-entropy finding
-        high_entropy_findings = [f for f in findings if "entropy" in f.lower()]
+        high_entropy_findings = [f for f in findings if "entropy" in self._finding_text(f)]
         self.assertEqual(
             high_entropy_findings, [],
             f"Unexpected entropy finding on plain text: {findings}"
@@ -140,7 +147,8 @@ class TestCryptoTracerHashFile(unittest.TestCase):
         path = self._write_temp(data, suffix=".bin")
         findings = self.tracer.detect_encryption_signature(path)
         self.assertTrue(
-            any("entropy" in f.lower() or "encrypted" in f.lower() for f in findings),
+            any("entropy" in self._finding_text(f) or "encrypted" in self._finding_text(f)
+                for f in findings),
             f"Expected high-entropy finding, got: {findings}"
         )
 
